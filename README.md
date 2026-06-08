@@ -1,24 +1,29 @@
-# TaskFlow Pro - To-Do List Application
+# DevScope - GitHub Profile Explorer
 
-A modern and responsive task management application built using HTML, CSS and JavaScript.
+A modern GitHub Profile Explorer built using HTML, CSS and JavaScript.
 
 ## Features
 
-- Add Tasks
-- Edit Tasks
-- Delete Tasks
-- Mark Tasks Complete
-- Local Storage Support
-- Dark Mode
+- Search GitHub Users
+- View Profile Information
+- Display Followers & Following
+- View Public Repositories
+- Loading States
+- Error Handling
 - Responsive Design
-- Task Filters
+- Dark Mode Support
 
-## Technologies
+## Technologies Used
 
 - HTML5
 - CSS3
 - JavaScript
-- LocalStorage
+- GitHub REST API
+
+## Installation
+
+1. Clone the repository
+2. Open index.html in browser
 
 ## Author
 
