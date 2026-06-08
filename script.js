@@ -1,689 +1,929 @@
-/* ==========================================================================
-   TaskFlow Pro — Core JavaScript Engine
-   ========================================================================== */
+/**
+ * DevScope - Premium GitHub Profile Explorer Script
+ * Pure Vanilla JavaScript implementation of API, analytics, and settings.
+ */
 
+// Application Constants
+const TRENDING_USERNAMES = ['torvalds', 'gaearon', 'tj', 'sindresorhus', 'yyx990803'];
+const DEFAULT_USER = 'gaearon'; // Dan Abramov - co-creator of Redux, React core team member
+
+// Application State
+let state = {
+  currentProfile: null,
+  currentRepos: [],
+  searchHistory: [],
+  savedProfiles: [],
+  activeView: 'dashboard',
+  theme: 'light',
+  githubToken: '',
+  repoSort: 'stars' // 'stars' | 'updated'
+};
+
+// DOM Elements
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebar-overlay');
+const menuToggle = document.getElementById('menu-toggle');
+const greetingText = document.getElementById('greeting-text');
+const currentDateText = document.getElementById('current-date');
+const headerSearchInput = document.getElementById('header-search-input');
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
+const sidebarUserAvatar = document.getElementById('sidebar-user-avatar');
+const sidebarUserName = document.getElementById('sidebar-user-name');
+
+// Dashboard View Elements
+const viewDashboard = document.getElementById('view-dashboard');
+const heroSearchForm = document.getElementById('hero-search-form');
+const heroSearchInput = document.getElementById('hero-search-input');
+const historyChips = document.getElementById('history-chips');
+const skeletonLoader = document.getElementById('skeleton-loader');
+const errorCard = document.getElementById('error-card');
+const errorTitle = document.getElementById('error-title');
+const errorDesc = document.getElementById('error-desc');
+const errorRetryBtn = document.getElementById('error-retry-btn');
+const profileDashboardGrid = document.getElementById('profile-dashboard-grid');
+
+// Profile detail elements
+const pAvatar = document.getElementById('p-avatar');
+const pName = document.getElementById('p-name');
+const pUsername = document.getElementById('p-username');
+const pBio = document.getElementById('p-bio');
+const pLocation = document.getElementById('p-location');
+const pCompany = document.getElementById('p-company');
+const pBlog = document.getElementById('p-blog');
+const pBlogContainer = document.getElementById('p-blog-container');
+const pTwitter = document.getElementById('p-twitter');
+const pTwitterContainer = document.getElementById('p-twitter-container');
+const pCreatedAt = document.getElementById('p-created-at');
+const pUpdatedAt = document.getElementById('p-updated-at');
+
+// Stats Elements
+const statRepos = document.getElementById('stat-repos');
+const statFollowers = document.getElementById('stat-followers');
+const statFollowing = document.getElementById('stat-following');
+const statGists = document.getElementById('stat-gists');
+
+// Action Buttons
+const saveProfileBtn = document.getElementById('save-profile-btn');
+const copyProfileBtn = document.getElementById('copy-profile-btn');
+const externalProfileBtn = document.getElementById('external-profile-btn');
+
+// Insights Elements
+const developerBadge = document.getElementById('developer-badge');
+const insightTotalRepos = document.getElementById('insight-total-repos');
+const insightPopularity = document.getElementById('insight-popularity');
+const insightGists = document.getElementById('insight-gists');
+const scoreProgressFill = document.getElementById('score-progress-fill');
+
+// Repositories Elements
+const reposGrid = document.getElementById('repos-grid');
+const filterStarsBtn = document.getElementById('filter-stars');
+const filterUpdatedBtn = document.getElementById('filter-updated');
+
+// Trending View Elements
+const viewTrending = document.getElementById('view-trending');
+const trendingDevsGrid = document.getElementById('trending-devs-grid');
+
+// Saved View Elements
+const viewSaved = document.getElementById('view-saved');
+const savedProfilesGrid = document.getElementById('saved-profiles-grid');
+
+// Settings View Elements
+const viewSettings = document.getElementById('view-settings');
+const settingsTokenInput = document.getElementById('settings-token');
+const settingsSaveTokenBtn = document.getElementById('settings-save-token-btn');
+const settingsClearTokenBtn = document.getElementById('settings-clear-token-btn');
+const clearTokenRow = document.getElementById('clear-token-row');
+const tokenStatusText = document.getElementById('token-status');
+const settingsThemeSelect = document.getElementById('settings-theme');
+const settingsClearCacheBtn = document.getElementById('settings-clear-cache-btn');
+
+// Toast Element & Back to Top
+const toastContainer = document.getElementById('toast-container');
+const backToTopBtn = document.getElementById('back-to-top');
+
+// Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Application State ---
-    let state = {
-        tasks: [],
-        filter: 'all',          // 'all' | 'active' | 'completed' | 'high-priority'
-        searchQuery: '',
-        theme: 'light',
-        activeView: 'dashboard', // 'dashboard' | 'my-tasks' | 'completed' | 'settings'
-        userName: 'Productive Guest',
-        taskIdToDelete: null
-    };
-
-    // --- DOM Elements ---
-    const htmlEl = document.documentElement;
-    
-    // Sidebar
-    const sidebar = document.getElementById('sidebar');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-    const btnHamburger = document.getElementById('btnHamburger');
-    const btnCloseSidebar = document.getElementById('btnCloseSidebar');
-    const navItems = document.querySelectorAll('.nav-item');
-    const sidebarUserName = document.getElementById('sidebarUserName');
-    const sidebarAvatar = document.getElementById('sidebarAvatar');
-    
-    // Header
-    const headerUserName = document.getElementById('headerUserName');
-    const currentDateLabel = document.getElementById('currentDate');
-    const searchInput = document.getElementById('searchInput');
-    const themeToggleBtn = document.getElementById('themeToggleBtn');
-    const sunIcon = document.getElementById('sunIcon');
-    const moonIcon = document.getElementById('moonIcon');
-    const headerProfileAvatar = document.getElementById('headerProfileAvatar');
-    
-    // Views
-    const dashboardViewport = document.getElementById('dashboardViewport');
-    const statsGrid = document.getElementById('statsGrid');
-    const taskInputSection = document.getElementById('taskInputSection');
-    const taskExplorerSection = document.getElementById('taskExplorerSection');
-    const settingsView = document.getElementById('settingsView');
-    
-    // Stats Dashboard
-    const totalTasksCount = document.getElementById('totalTasksCount');
-    const pendingTasksCount = document.getElementById('pendingTasksCount');
-    const completedTasksCount = document.getElementById('completedTasksCount');
-    const productivityScore = document.getElementById('productivityScore');
-    const statPercentTotal = document.getElementById('statPercentTotal');
-    const statPercentPending = document.getElementById('statPercentPending');
-    const statPercentCompleted = document.getElementById('statPercentCompleted');
-    const statPercentProductivity = document.getElementById('statPercentProductivity');
-    
-    // Inputs & Forms
-    const taskForm = document.getElementById('taskForm');
-    const taskInput = document.getElementById('taskInput');
-    const dueDateInput = document.getElementById('dueDateInput');
-    const prioritySelect = document.getElementById('prioritySelect');
-    
-    // List & Empty state
-    const taskList = document.getElementById('taskList');
-    const emptyState = document.getElementById('emptyState');
-    const btnEmptyStateAction = document.getElementById('btnEmptyStateAction');
-    
-    // Modals
-    const confirmModal = document.getElementById('confirmModal');
-    const btnCancelDelete = document.getElementById('btnCancelDelete');
-    const btnConfirmDelete = document.getElementById('btnConfirmDelete');
-    
-    // Settings
-    const settingsNameInput = document.getElementById('settingsNameInput');
-    const btnSaveProfile = document.getElementById('btnSaveProfile');
-    const btnResetDatabase = document.getElementById('btnResetDatabase');
-
-    // Toasts
-    const toastContainer = document.getElementById('toastContainer');
-
-    // --- Helper Sanitizer & Formatter Utilities ---
-
-    function sanitizeHTML(string) {
-        return string.replace(/[&<>'"]/g, 
-            tag => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                "'": '&#39;',
-                '"': '&quot;'
-            }[tag] || tag)
-        );
-    }
-
-    function formatRelativeDate(dateString) {
-        if (!dateString) return 'No due date';
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const targetDate = new Date(dateString);
-        targetDate.setHours(0, 0, 0, 0);
-        
-        const diffTime = targetDate - today;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        if (diffDays === 0) return 'Due today';
-        if (diffDays === 1) return 'Due tomorrow';
-        if (diffDays === -1) return 'Due yesterday';
-        if (diffDays < -1) return `Overdue by ${Math.abs(diffDays)}d`;
-        
-        return 'Due ' + targetDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-    }
-
-    function isDateOverdue(dateString, isCompleted) {
-        if (!dateString || isCompleted) return false;
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const targetDate = new Date(dateString);
-        targetDate.setHours(0,0,0,0);
-        return targetDate < today;
-    }
-
-    // --- Dynamic Greeting Header Renderer ---
-
-    function updateGreeting() {
-        const hour = new Date().getHours();
-        let greeting = 'Good morning';
-        
-        if (hour >= 12 && hour < 17) {
-            greeting = 'Good afternoon';
-        } else if (hour >= 17 || hour < 4) {
-            greeting = 'Good evening';
-        }
-        
-        headerUserName.textContent = `${greeting}, ${state.userName}`;
-    }
-
-    function updateHeaderDate() {
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        currentDateLabel.textContent = new Date().toLocaleDateString(undefined, options);
-    }
-
-    // --- Custom Toast Notifier ---
-
-    function showToast(message, type = 'success') {
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        
-        let iconMarkup = '';
-        if (type === 'success') {
-            iconMarkup = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-        } else if (type === 'info') {
-            iconMarkup = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
-        } else if (type === 'warning') {
-            iconMarkup = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>`;
-        }
-        
-        toast.innerHTML = `
-            <div class="toast-icon">${iconMarkup}</div>
-            <div class="toast-msg">${message}</div>
-        `;
-        
-        toastContainer.appendChild(toast);
-        
-        // Remove toast on slide anim completion
-        setTimeout(() => {
-            toast.classList.add('toast-fade-out');
-            toast.addEventListener('transitionend', () => {
-                toast.remove();
-            });
-        }, 3200);
-    }
-
-    // --- State & Storage Sync ---
-
-    function saveToLocalStorage() {
-        localStorage.setItem('taskflow_tasks_pro', JSON.stringify(state.tasks));
-    }
-
-    function loadFromLocalStorage() {
-        // Load Tasks
-        const localTasks = localStorage.getItem('taskflow_tasks_pro');
-        state.tasks = localTasks ? JSON.parse(localTasks) : [];
-        
-        // Load Theme
-        const localTheme = localStorage.getItem('taskflow_theme_pro');
-        state.theme = localTheme ? localTheme : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        applyTheme(state.theme);
-        
-        // Load profile Name
-        const localName = localStorage.getItem('taskflow_username_pro');
-        if (localName) {
-            state.userName = localName;
-        }
-        updateUserVisuals();
-    }
-
-    function updateUserVisuals() {
-        // Update name outputs
-        sidebarUserName.textContent = state.userName;
-        settingsNameInput.value = state.userName;
-        updateGreeting();
-        
-        // Initials avatar generator
-        const initials = state.userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-        sidebarAvatar.textContent = initials || 'TP';
-        headerProfileAvatar.textContent = initials || 'TP';
-    }
-
-    // --- Theme Control ---
-
-    function applyTheme(theme) {
-        if (theme === 'dark') {
-            htmlEl.setAttribute('data-theme', 'dark');
-            sunIcon.classList.add('hide');
-            moonIcon.classList.remove('hide');
-        } else {
-            htmlEl.setAttribute('data-theme', 'light');
-            sunIcon.classList.remove('hide');
-            moonIcon.classList.add('hide');
-        }
-        localStorage.setItem('taskflow_theme_pro', theme);
-    }
-
-    function toggleTheme() {
-        state.theme = state.theme === 'light' ? 'dark' : 'light';
-        applyTheme(state.theme);
-        showToast(`Theme changed to ${state.theme} mode`, 'info');
-    }
-
-    // --- Router views manager ---
-
-    function navigateToView(view) {
-        state.activeView = view;
-        
-        // Update active nav state class
-        navItems.forEach(item => {
-            if (item.getAttribute('data-view') === view) {
-                item.classList.add('active');
-            } else {
-                item.classList.remove('active');
-            }
-        });
-        
-        // Close responsive mobile sidebar when navigation executes
-        sidebar.classList.remove('open');
-        sidebarOverlay.classList.remove('active');
-
-        // Toggle Views visibility
-        if (view === 'settings') {
-            dashboardViewport.classList.add('hide');
-            settingsView.classList.remove('hide');
-        } else {
-            dashboardViewport.classList.remove('hide');
-            settingsView.classList.add('hide');
-            
-            // Adjust layouts inside dashboard viewport based on router tab
-            if (view === 'dashboard') {
-                statsGrid.classList.remove('hide');
-                taskInputSection.classList.remove('hide');
-                taskExplorerSection.classList.remove('hide');
-                
-                // Reset tab filter on dashboard
-                state.filter = 'all';
-                updateActiveFilterButton('all');
-            } else if (view === 'my-tasks') {
-                statsGrid.classList.add('hide');
-                taskInputSection.classList.remove('hide');
-                taskExplorerSection.classList.remove('hide');
-                
-                // Show active tasks only by default
-                state.filter = 'active';
-                updateActiveFilterButton('active');
-            } else if (view === 'completed') {
-                statsGrid.classList.add('hide');
-                taskInputSection.classList.add('hide');
-                taskExplorerSection.classList.remove('hide');
-                
-                // Force to show completed items
-                state.filter = 'completed';
-                updateActiveFilterButton('completed');
-            }
-            
-            renderTaskList();
-            updateDashboardCounters();
-        }
-    }
-
-    function updateActiveFilterButton(filterVal) {
-        const filterButtons = document.querySelectorAll('.filter-tab');
-        filterButtons.forEach(btn => {
-            if (btn.getAttribute('data-filter') === filterVal) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
-    }
-
-    // --- Dashboard Metrics & Productive score counters ---
-
-    function updateDashboardCounters() {
-        const total = state.tasks.length;
-        const completed = state.tasks.filter(t => t.completed).length;
-        const pending = total - completed;
-        const productivity = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-        totalTasksCount.textContent = total;
-        pendingTasksCount.textContent = pending;
-        completedTasksCount.textContent = completed;
-        productivityScore.textContent = `${productivity}%`;
-
-        // Update progress bar width (UI only — no logic change)
-        const productivityBar = document.getElementById('productivityBar');
-        if (productivityBar) productivityBar.style.width = `${productivity}%`;
-
-        // Update card info tags
-        statPercentTotal.textContent = total === 1 ? '1 task cataloged' : `${total} tasks cataloged`;
-        statPercentPending.textContent = pending === 1 ? '1 active objective' : `${pending} active objectives`;
-        statPercentCompleted.textContent = completed === 1 ? '1 goal archived' : `${completed} goals archived`;
-        statPercentProductivity.textContent = productivity === 100 && total > 0 ? 'All objectives completed!' : `${productivity}% completion rate`;
-        
-        // Add fancy neon glows if productivity card hits 100%
-        const cardProductivity = document.getElementById('cardProductivity');
-        if (productivity === 100 && total > 0) {
-            cardProductivity.classList.add('productivity-glow');
-        } else {
-            cardProductivity.classList.remove('productivity-glow');
-        }
-    }
-
-    // --- Core Task Lifecycle Management ---
-
-    /**
-     * Create and append new task to local array.
-     */
-    function handleAddTask(title, priority, dateVal) {
-        const cleanTitle = title.trim();
-        if (!cleanTitle) return;
-
-        const newTask = {
-            id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-            title: cleanTitle,
-            completed: false,
-            priority: priority,
-            dueDate: dateVal || null,
-            createdAt: new Date().toISOString()
-        };
-
-        state.tasks.unshift(newTask);
-        saveToLocalStorage();
-        updateDashboardCounters();
-        renderTaskList();
-        showToast('Objective created successfully', 'success');
-        
-        // Clear input form
-        taskInput.value = '';
-        dueDateInput.value = '';
-        taskInput.focus();
-    }
-
-    /**
-     * Complete Task state toggle.
-     */
-    function toggleTaskComplete(id) {
-        state.tasks = state.tasks.map(task => {
-            if (task.id === id) {
-                const status = !task.completed;
-                showToast(status ? 'Objective marked completed' : 'Objective returned to queue', 'success');
-                return { ...task, completed: status };
-            }
-            return task;
-        });
-
-        saveToLocalStorage();
-        updateDashboardCounters();
-        renderTaskList();
-    }
-
-    /**
-     * Inline text modification.
-     */
-    function enterEditMode(id, cardElement) {
-        const task = state.tasks.find(t => t.id === id);
-        if (!task || task.completed) return;
-
-        const titleSpan = cardElement.querySelector('.task-title');
-        const originalText = task.title;
-
-        if (cardElement.querySelector('.inline-edit-input')) return;
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'inline-edit-input';
-        input.value = originalText;
-        input.maxLength = 100;
-
-        titleSpan.replaceWith(input);
-        input.focus();
-        input.select();
-
-        const saveAndExit = () => {
-            const val = input.value.trim();
-            if (val && val !== originalText) {
-                state.tasks = state.tasks.map(t => {
-                    if (t.id === id) return { ...t, title: val };
-                    return t;
-                });
-                saveToLocalStorage();
-                renderTaskList();
-                showToast('Objective updated', 'success');
-            } else {
-                renderTaskList(); // Restore state view
-            }
-        };
-
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                saveAndExit();
-            } else if (e.key === 'Escape') {
-                renderTaskList();
-            }
-        });
-
-        input.addEventListener('blur', () => {
-            saveAndExit();
-        });
-    }
-
-    /**
-     * Open confirmation modal.
-     */
-    function triggerDeleteModal(id) {
-        state.taskIdToDelete = id;
-        confirmModal.classList.remove('hide');
-    }
-
-    function closeDeleteModal() {
-        state.taskIdToDelete = null;
-        confirmModal.classList.add('hide');
-    }
-
-    function confirmDeleteTask() {
-        const id = state.taskIdToDelete;
-        if (!id) return;
-
-        const card = document.querySelector(`[data-id="${id}"]`);
-        if (card) {
-            card.classList.add('slide-out');
-            
-            // Wait for slide animation (350ms) to complete
-            card.addEventListener('animationend', () => {
-                state.tasks = state.tasks.filter(t => t.id !== id);
-                saveToLocalStorage();
-                updateDashboardCounters();
-                renderTaskList();
-                showToast('Objective removed successfully', 'warning');
-                closeDeleteModal();
-            });
-        } else {
-            // Fail-safe fallbacks
-            state.tasks = state.tasks.filter(t => t.id !== id);
-            saveToLocalStorage();
-            updateDashboardCounters();
-            renderTaskList();
-            closeDeleteModal();
-        }
-    }
-
-    // --- Task List Renderer Engine ---
-
-    function renderTaskList() {
-        taskList.innerHTML = '';
-        
-        // Tab-Filter logic
-        let filtered = state.tasks.filter(task => {
-            if (state.filter === 'active') return !task.completed;
-            if (state.filter === 'completed') return task.completed;
-            if (state.filter === 'high-priority') return task.priority === 'high';
-            return true;
-        });
-
-        // Search Query filter logic
-        if (state.searchQuery) {
-            const query = state.searchQuery.toLowerCase();
-            filtered = filtered.filter(task => 
-                task.title.toLowerCase().includes(query)
-            );
-        }
-
-        // Empty state visibility switcher
-        if (filtered.length === 0) {
-            emptyState.classList.remove('hide');
-            taskList.classList.add('hide');
-            
-            // Custom messages depending on current filters
-            if (state.searchQuery) {
-                emptyState.querySelector('.empty-title').textContent = 'No matching objectives';
-                emptyState.querySelector('.empty-desc').textContent = 'No search results match your criteria. Try redefining search terms.';
-                btnEmptyStateAction.classList.add('hide');
-            } else if (state.filter === 'completed') {
-                emptyState.querySelector('.empty-title').textContent = 'No completed milestones';
-                emptyState.querySelector('.empty-desc').textContent = 'Check off active goals from your task logs to fill this completed log.';
-                btnEmptyStateAction.classList.add('hide');
-            } else if (state.filter === 'high-priority') {
-                emptyState.querySelector('.empty-title').textContent = 'No critical high-priority items';
-                emptyState.querySelector('.empty-desc').textContent = 'Keep it up! Your schedule contains no immediate critical objectives.';
-                btnEmptyStateAction.classList.add('hide');
-            } else {
-                emptyState.querySelector('.empty-title').textContent = 'All tasks completed!';
-                emptyState.querySelector('.empty-desc').textContent = 'Enjoy your day, or launch a new initiative by adding custom goals.';
-                btnEmptyStateAction.classList.remove('hide');
-            }
-        } else {
-            emptyState.classList.add('hide');
-            taskList.classList.remove('hide');
-        }
-
-        // Output task card items
-        filtered.forEach(task => {
-            const card = document.createElement('div');
-            card.className = `task-card ${task.completed ? 'completed' : ''}`;
-            card.setAttribute('data-id', task.id);
-            
-            // Checkbox
-            const checkboxHTML = `
-                <div class="task-checkbox-col">
-                    <label class="custom-checkbox">
-                        <input type="checkbox" ${task.completed ? 'checked' : ''} data-action="toggle">
-                        <span class="checkmark">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        </span>
-                    </label>
-                </div>
-            `;
-            
-            // Edit pencil button
-            const editBtnHTML = task.completed ? '' : `
-                <button class="btn-icon-action" data-action="edit" title="Edit task details">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                </button>
-            `;
-            
-            // Overdue state check
-            const overdue = isDateOverdue(task.dueDate, task.completed);
-            
-            card.innerHTML = `
-                ${checkboxHTML}
-                <div class="task-content-col">
-                    <span class="task-title">${sanitizeHTML(task.title)}</span>
-                    <div class="task-meta-row">
-                        <span class="priority-badge priority-${task.priority}">${task.priority}</span>
-                        ${task.dueDate ? `
-                            <span class="date-badge ${overdue ? 'overdue' : ''}">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                                ${formatRelativeDate(task.dueDate)}
-                            </span>
-                        ` : ''}
-                    </div>
-                </div>
-                <div class="task-actions-col">
-                    ${editBtnHTML}
-                    <button class="btn-icon-action btn-delete" data-action="delete" title="Remove objective">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                    </button>
-                </div>
-            `;
-            
-            // Events attachment
-            card.querySelector('[data-action="toggle"]').addEventListener('change', () => {
-                toggleTaskComplete(task.id);
-            });
-            
-            if (!task.completed) {
-                card.querySelector('[data-action="edit"]').addEventListener('click', () => {
-                    enterEditMode(task.id, card);
-                });
-            }
-            
-            card.querySelector('[data-action="delete"]').addEventListener('click', () => {
-                triggerDeleteModal(task.id);
-            });
-
-            taskList.appendChild(card);
-        });
-    }
-
-    // --- Bind Interactivity Event Listeners ---
-
-    // 1. Submit form listener
-    taskForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        handleAddTask(taskInput.value, prioritySelect.value, dueDateInput.value);
-    });
-
-    // 2. Sidebar navigations clicks
-    navItems.forEach(item => {
-        item.addEventListener('click', () => {
-            const target = item.getAttribute('data-view');
-            navigateToView(target);
-        });
-    });
-
-    // 3. Mobile Hamburger drawer toggle hooks
-    btnHamburger.addEventListener('click', () => {
-        sidebar.classList.add('open');
-        sidebarOverlay.classList.add('active');
-    });
-
-    btnCloseSidebar.addEventListener('click', () => {
-        sidebar.classList.remove('open');
-        sidebarOverlay.classList.remove('active');
-    });
-
-    sidebarOverlay.addEventListener('click', () => {
-        sidebar.classList.remove('open');
-        sidebarOverlay.classList.remove('active');
-    });
-
-    // 4. Explorer Task Filter Tabs
-    const filterTabs = document.querySelectorAll('.filter-tab');
-    filterTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            filterTabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            
-            state.filter = tab.getAttribute('data-filter');
-            renderTaskList();
-        });
-    });
-
-    // 5. Header Search bar input keystrokes
-    searchInput.addEventListener('input', (e) => {
-        state.searchQuery = e.target.value;
-        renderTaskList();
-    });
-
-    // 6. Header Theme toggler
-    themeToggleBtn.addEventListener('click', toggleTheme);
-
-    // 7. Modals Confirmation deletion flows
-    btnCancelDelete.addEventListener('click', closeDeleteModal);
-    btnConfirmDelete.addEventListener('click', confirmDeleteTask);
-    confirmModal.addEventListener('click', (e) => {
-        if (e.target === confirmModal) closeDeleteModal();
-    });
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !confirmModal.classList.contains('hide')) {
-            closeDeleteModal();
-        }
-    });
-
-    // 8. Settings configuration forms
-    btnSaveProfile.addEventListener('click', () => {
-        const val = settingsNameInput.value.trim();
-        if (val) {
-            state.userName = val;
-            localStorage.setItem('taskflow_username_pro', val);
-            updateUserVisuals();
-            showToast('Username updated successfully', 'success');
-        }
-    });
-
-    // Destructive full reset database
-    btnResetDatabase.addEventListener('click', () => {
-        if (confirm('Are you absolutely sure you want to restore factory default settings? All tasks and customization logs will be cleared.')) {
-            localStorage.clear();
-            state.tasks = [];
-            state.theme = 'light';
-            state.userName = 'Productive Guest';
-            state.activeView = 'dashboard';
-            
-            applyTheme('light');
-            updateUserVisuals();
-            navigateToView('dashboard');
-            
-            showToast('Database wiped completely', 'warning');
-        }
-    });
-
-    // Empty state CTA focuses the title input box
-    btnEmptyStateAction.addEventListener('click', () => {
-        taskInput.focus();
-    });
-
-    // --- Initialize Application state ---
-    loadFromLocalStorage();
-    updateHeaderDate();
-    navigateToView('dashboard');
+  loadLocalStorage();
+  setDynamicGreeting();
+  setupTheme();
+  setupNavigation();
+  setupEventListeners();
+  renderTrendingPreloads();
+  
+  // Load Default Featured Profile (If search history exists, load last searched, else default)
+  const lastUser = state.searchHistory.length > 0 ? state.searchHistory[0] : DEFAULT_USER;
+  fetchGitHubProfile(lastUser);
 });
+
+// Load variables from LocalStorage
+function loadLocalStorage() {
+  const history = localStorage.getItem('devscope_search_history');
+  state.searchHistory = history ? JSON.parse(history) : [];
+  
+  const saved = localStorage.getItem('devscope_saved_profiles');
+  state.savedProfiles = saved ? JSON.parse(saved) : [];
+  
+  state.theme = localStorage.getItem('devscope_theme') || 'light';
+  state.githubToken = localStorage.getItem('devscope_token') || '';
+  
+  // Set UI input values
+  if (state.githubToken) {
+    settingsTokenInput.value = state.githubToken;
+    clearTokenRow.style.display = 'flex';
+    tokenStatusText.textContent = 'Token configured. Higher rate limits (5,000 requests/hr) active.';
+    tokenStatusText.style.color = 'var(--success)';
+  } else {
+    settingsTokenInput.value = '';
+    clearTokenRow.style.display = 'none';
+    tokenStatusText.textContent = 'Token is not configured (unauthenticated limits: 60 requests/hr active).';
+    tokenStatusText.style.color = 'var(--text-muted)';
+  }
+  
+  settingsThemeSelect.value = state.theme;
+  
+  // Render history chips initially
+  renderSearchHistoryChips();
+}
+
+// Generate dynamic greetings and format dates
+function setDynamicGreeting() {
+  const now = new Date();
+  const hour = now.getHours();
+  let greeting = 'Good morning, Developer!';
+  
+  if (hour >= 12 && hour < 17) {
+    greeting = 'Good afternoon, Developer!';
+  } else if (hour >= 17 && hour < 22) {
+    greeting = 'Good evening, Developer!';
+  } else if (hour >= 22 || hour < 5) {
+    greeting = 'Happy coding, Developer!';
+  }
+  
+  greetingText.textContent = greeting;
+  
+  // Set Date
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  currentDateText.textContent = now.toLocaleDateString('en-US', options);
+}
+
+// Theme setup & triggers
+function setupTheme() {
+  document.documentElement.setAttribute('data-theme', state.theme);
+  updateThemeToggleIcon();
+}
+
+function updateThemeToggleIcon() {
+  const icon = themeToggleBtn.querySelector('i');
+  if (state.theme === 'dark') {
+    themeToggleBtn.innerHTML = '<i data-lucide="sun"></i>';
+    themeToggleBtn.title = 'Switch to Light Mode';
+  } else {
+    themeToggleBtn.innerHTML = '<i data-lucide="moon"></i>';
+    themeToggleBtn.title = 'Switch to Dark Mode';
+  }
+  lucide.createIcons();
+}
+
+function toggleTheme() {
+  state.theme = state.theme === 'light' ? 'dark' : 'light';
+  localStorage.setItem('devscope_theme', state.theme);
+  document.documentElement.setAttribute('data-theme', state.theme);
+  settingsThemeSelect.value = state.theme;
+  updateThemeToggleIcon();
+  showToast(`Switched to ${state.theme === 'dark' ? 'Dark' : 'Light'} Mode`, 'success');
+}
+
+// Sidebar Navigation Pane Toggles
+function setupNavigation() {
+  const navItems = document.querySelectorAll('.nav-list .nav-item');
+  
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const view = item.getAttribute('data-view');
+      switchView(view);
+      
+      // Close mobile sidebar if open
+      sidebar.classList.remove('mobile-open');
+      sidebarOverlay.classList.remove('visible');
+    });
+  });
+}
+
+function switchView(viewName) {
+  state.activeView = viewName;
+  
+  // Update nav UI active styles
+  document.querySelectorAll('.nav-list .nav-item').forEach(item => {
+    if (item.getAttribute('data-view') === viewName) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+  
+  // Show / Hide view panes
+  const viewPanes = document.querySelectorAll('.view-pane');
+  viewPanes.forEach(pane => {
+    if (pane.id === `view-${viewName}`) {
+      pane.classList.add('active');
+    } else {
+      pane.classList.remove('active');
+    }
+  });
+
+  // Load contextual stuff if needed
+  if (viewName === 'saved') {
+    renderSavedProfiles();
+  }
+  
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Event Listeners
+function setupEventListeners() {
+  // Mobile menu button
+  menuToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('mobile-open');
+    sidebarOverlay.classList.toggle('visible');
+  });
+
+  // Mobile overlay click to close sidebar
+  sidebarOverlay.addEventListener('click', () => {
+    sidebar.classList.remove('mobile-open');
+    sidebarOverlay.classList.remove('visible');
+  });
+
+  // Header quick search focus keybind (Ctrl + K or /)
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey && e.key === 'k') || e.key === '/') {
+      // Prevent browser default behavior if focus
+      if (document.activeElement !== headerSearchInput && document.activeElement !== heroSearchInput && document.activeElement !== settingsTokenInput) {
+        e.preventDefault();
+        headerSearchInput.focus();
+        headerSearchInput.select();
+      }
+    }
+  });
+
+  // Search submits
+  heroSearchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const query = heroSearchInput.value.trim();
+    if (query) {
+      fetchGitHubProfile(query);
+      heroSearchInput.value = '';
+    }
+  });
+
+  headerSearchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const query = headerSearchInput.value.trim();
+      if (query) {
+        switchView('dashboard');
+        fetchGitHubProfile(query);
+        headerSearchInput.value = '';
+        headerSearchInput.blur();
+      }
+    }
+  });
+
+  // Theme Toggles
+  themeToggleBtn.addEventListener('click', toggleTheme);
+  
+  settingsThemeSelect.addEventListener('change', (e) => {
+    state.theme = e.target.value;
+    localStorage.setItem('devscope_theme', state.theme);
+    document.documentElement.setAttribute('data-theme', state.theme);
+    updateThemeToggleIcon();
+    showToast(`Switched to ${state.theme === 'dark' ? 'Dark' : 'Light'} Mode`, 'success');
+  });
+
+  // Actions
+  saveProfileBtn.addEventListener('click', toggleSaveProfile);
+  
+  copyProfileBtn.addEventListener('click', () => {
+    if (state.currentProfile) {
+      navigator.clipboard.writeText(state.currentProfile.html_url)
+        .then(() => showToast('GitHub URL copied to clipboard!', 'success'))
+        .catch(() => showToast('Failed to copy URL.', 'error'));
+    }
+  });
+
+  // Sorting repositories
+  filterStarsBtn.addEventListener('click', () => {
+    if (state.repoSort !== 'stars') {
+      state.repoSort = 'stars';
+      filterStarsBtn.classList.add('active');
+      filterUpdatedBtn.classList.remove('active');
+      renderRepositories();
+    }
+  });
+
+  filterUpdatedBtn.addEventListener('click', () => {
+    if (state.repoSort !== 'updated') {
+      state.repoSort = 'updated';
+      filterUpdatedBtn.classList.add('active');
+      filterStarsBtn.classList.remove('active');
+      renderRepositories();
+    }
+  });
+
+  // Settings Save Token
+  settingsSaveTokenBtn.addEventListener('click', () => {
+    const token = settingsTokenInput.value.trim();
+    if (token) {
+      state.githubToken = token;
+      localStorage.setItem('devscope_token', token);
+      clearTokenRow.style.display = 'flex';
+      tokenStatusText.textContent = 'Token configured. Higher rate limits (5,000 requests/hr) active.';
+      tokenStatusText.style.color = 'var(--success)';
+      showToast('GitHub Personal Access Token saved successfully!', 'success');
+    } else {
+      showToast('Please enter a valid token.', 'error');
+    }
+  });
+
+  // Settings Remove Token
+  settingsClearTokenBtn.addEventListener('click', () => {
+    state.githubToken = '';
+    localStorage.removeItem('devscope_token');
+    settingsTokenInput.value = '';
+    clearTokenRow.style.display = 'none';
+    tokenStatusText.textContent = 'Token is not configured (unauthenticated limits: 60 requests/hr active).';
+    tokenStatusText.style.color = 'var(--text-muted)';
+    showToast('GitHub Access Token removed.', 'success');
+  });
+
+  // Settings Clear App Cache
+  settingsClearCacheBtn.addEventListener('click', () => {
+    if (confirm('Are you sure you want to clear search history and all saved bookmarks?')) {
+      localStorage.removeItem('devscope_search_history');
+      localStorage.removeItem('devscope_saved_profiles');
+      state.searchHistory = [];
+      state.savedProfiles = [];
+      renderSearchHistoryChips();
+      renderSavedProfiles();
+      showToast('Explorer cache reset successfully.', 'success');
+    }
+  });
+
+  // Retry loading
+  errorRetryBtn.addEventListener('click', () => {
+    errorCard.style.display = 'none';
+    const lastSearch = state.searchHistory.length > 0 ? state.searchHistory[0] : DEFAULT_USER;
+    fetchGitHubProfile(lastSearch);
+  });
+
+  // Back to Top functionality
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 400) {
+      backToTopBtn.classList.add('visible');
+    } else {
+      backToTopBtn.classList.remove('visible');
+    }
+  });
+
+  backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
+// GitHub REST API Integration
+async function fetchGitHubProfile(username) {
+  // Trigger loading screen
+  showLoadingState(true);
+  
+  // Headers Setup
+  const headers = {};
+  if (state.githubToken) {
+    headers['Authorization'] = `token ${state.githubToken}`;
+  }
+  
+  try {
+    // 1. Fetch User Data
+    const profileResponse = await fetch(`https://api.github.com/users/${username}`, { headers });
+    
+    if (profileResponse.status === 404) {
+      showErrorState('User Not Found', `The profile for username "${username}" could not be located. Verify the name is spelled correctly and try again.`);
+      return;
+    } else if (profileResponse.status === 403) {
+      const errorData = await profileResponse.json();
+      if (errorData.message && errorData.message.includes('rate limit exceeded')) {
+        showErrorState('Rate Limit Exceeded', 'You have hit the GitHub API unauthenticated limit of 60 requests per hour. Please add a GitHub Personal Access Token (PAT) under settings to increase this limit to 5,000 queries per hour.');
+      } else {
+        showErrorState('API Access Forbidden', 'GitHub API query forbidden. Please verify your Access Token in settings.');
+      }
+      return;
+    } else if (!profileResponse.ok) {
+      showErrorState('API Query Failed', `API error: ${profileResponse.statusText}. Please check your internet connection and retry.`);
+      return;
+    }
+    
+    const profileData = await profileResponse.json();
+    state.currentProfile = profileData;
+    
+    // 2. Fetch User Repositories
+    // GitHub API returns up to 100 repositories per page. We fetch page 1 (up to 100 repos) to calculate analytics.
+    const reposResponse = await fetch(`https://api.github.com/users/${username}/repos?per_page=100`, { headers });
+    if (reposResponse.ok) {
+      state.currentRepos = await reposResponse.json();
+    } else {
+      state.currentRepos = [];
+      showToast('Could not fetch developer repositories.', 'error');
+    }
+    
+    // Update active profile in bottom sidebar (Guest Explorer -> Current Searched user)
+    sidebarUserAvatar.src = profileData.avatar_url;
+    sidebarUserName.textContent = profileData.name || profileData.login;
+    
+    // Save to search history
+    addToSearchHistory(username);
+    
+    // Render
+    renderProfileDashboard();
+    showLoadingState(false);
+    
+  } catch (err) {
+    console.error(err);
+    showErrorState('Network Request Failed', 'A network connection failure occurred. Please verify your connection status and try again.');
+  }
+}
+
+// Show/Hide Loading States
+function showLoadingState(isLoading) {
+  if (isLoading) {
+    skeletonLoader.style.display = 'block';
+    profileDashboardGrid.style.display = 'none';
+    errorCard.style.display = 'none';
+  } else {
+    skeletonLoader.style.display = 'none';
+    profileDashboardGrid.style.display = 'grid';
+    errorCard.style.display = 'none';
+  }
+}
+
+// Show Error States
+function showErrorState(title, description) {
+  skeletonLoader.style.display = 'none';
+  profileDashboardGrid.style.display = 'none';
+  errorCard.style.display = 'flex';
+  
+  errorTitle.textContent = title;
+  errorDesc.textContent = description;
+  
+  showToast(title, 'error');
+}
+
+// Render Profile Details
+function renderProfileDashboard() {
+  const p = state.currentProfile;
+  if (!p) return;
+  
+  // Render Left Column card details
+  pAvatar.src = p.avatar_url;
+  pName.textContent = p.name || p.login;
+  pUsername.textContent = `@${p.login}`;
+  pBio.textContent = p.bio || 'This developer has not filled out a biography yet.';
+  
+  pLocation.textContent = p.location || 'Not Specified';
+  pCompany.textContent = p.company || 'Independent';
+  
+  if (p.blog) {
+    pBlog.href = p.blog.startsWith('http') ? p.blog : `https://${p.blog}`;
+    pBlog.textContent = p.blog.replace(/(^\w+:|^)\/\//, '').substring(0, 24) + (p.blog.length > 24 ? '...' : '');
+    pBlogContainer.style.display = 'inline';
+    pBlogContainer.parentElement.style.display = 'flex';
+  } else {
+    pBlogContainer.parentElement.style.display = 'none';
+  }
+  
+  if (p.twitter_username) {
+    pTwitter.href = `https://twitter.com/${p.twitter_username}`;
+    pTwitter.textContent = `@${p.twitter_username}`;
+    pTwitterContainer.style.display = 'inline';
+    pTwitterContainer.parentElement.style.display = 'flex';
+  } else {
+    pTwitterContainer.parentElement.style.display = 'none';
+  }
+  
+  // Format dates
+  const joinedDate = new Date(p.created_at);
+  const updatedDate = new Date(p.updated_at);
+  const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+  pCreatedAt.textContent = joinedDate.toLocaleDateString('en-US', dateOptions);
+  pUpdatedAt.textContent = updatedDate.toLocaleDateString('en-US', dateOptions);
+  
+  // Actions
+  externalProfileBtn.href = p.html_url;
+  
+  // Set Saved Active Bookmark style
+  const isSaved = state.savedProfiles.some(item => item.login.toLowerCase() === p.login.toLowerCase());
+  if (isSaved) {
+    saveProfileBtn.classList.add('active');
+    saveProfileBtn.title = 'Remove Bookmark';
+  } else {
+    saveProfileBtn.classList.remove('active');
+    saveProfileBtn.title = 'Bookmark Profile';
+  }
+  
+  // Render Stats counts
+  statRepos.textContent = p.public_repos;
+  statFollowers.textContent = formatCount(p.followers);
+  statFollowing.textContent = formatCount(p.following);
+  statGists.textContent = p.public_gists;
+  
+  // Render Contributions & Developer badges
+  calculateDeveloperInsights();
+  
+  // Render repositories
+  renderRepositories();
+  
+  // Reload icons
+  lucide.createIcons();
+}
+
+// Repositories Rendering (Top 6 repos)
+function renderRepositories() {
+  reposGrid.innerHTML = '';
+  
+  if (state.currentRepos.length === 0) {
+    reposGrid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--text-secondary);">
+        No repositories found for this user.
+      </div>
+    `;
+    return;
+  }
+  
+  // Sort Repositories
+  let sorted = [...state.currentRepos];
+  if (state.repoSort === 'stars') {
+    sorted.sort((a, b) => b.stargazers_count - a.stargazers_count);
+  } else {
+    sorted.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+  }
+  
+  // Limit to top 6 repositories
+  const topRepos = sorted.slice(0, 6);
+  
+  topRepos.forEach(repo => {
+    const card = document.createElement('div');
+    card.className = 'repo-card';
+    
+    // Date calculation
+    const updated = new Date(repo.updated_at);
+    const dateStr = updated.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    
+    // Language Color
+    const lang = repo.language || 'Plain Text';
+    const color = getLanguageColor(lang);
+    
+    card.innerHTML = `
+      <div class="repo-top">
+        <a href="${repo.html_url}" target="_blank" rel="noopener noreferrer" class="repo-name-link">
+          <i data-lucide="folder-git-2"></i>
+          <span>${repo.name}</span>
+        </a>
+        <span class="repo-visibility">${repo.visibility || 'public'}</span>
+      </div>
+      <p class="repo-desc">${repo.description || 'No description provided.'}</p>
+      
+      <div class="repo-footer">
+        <div class="repo-footer-left">
+          <div class="repo-lang">
+            <span class="lang-color" style="background-color: ${color}"></span>
+            <span>${lang}</span>
+          </div>
+          <div class="repo-stats">
+            <div class="repo-stat-item" title="Stars">
+              <i data-lucide="star"></i>
+              <span>${formatCount(repo.stargazers_count)}</span>
+            </div>
+            <div class="repo-stat-item" title="Forks">
+              <i data-lucide="git-fork"></i>
+              <span>${formatCount(repo.forks_count)}</span>
+            </div>
+          </div>
+        </div>
+        <span class="repo-date">Updated ${dateStr}</span>
+      </div>
+    `;
+    reposGrid.appendChild(card);
+  });
+  
+  lucide.createIcons();
+}
+
+// Calculate Developer Badge & Popularity
+function calculateDeveloperInsights() {
+  const p = state.currentProfile;
+  const repos = state.currentRepos;
+  if (!p) return;
+  
+  // Sum stargazers count of fetched repositories
+  const totalStars = repos.reduce((sum, repo) => sum + repo.stargazers_count, 0);
+  
+  // Popularity Score Formula:
+  // (Followers * 4) + (Public Repos * 2) + (Public Gists * 1) + (Total Top Stars * 6)
+  const score = (p.followers * 4) + (p.public_repos * 2) + (p.public_gists * 1) + (totalStars * 6);
+  
+  // Standardize 0 to 100 on log/cap basis
+  const cappedScore = Math.min(score, 5000);
+  const percentage = Math.round((cappedScore / 5000) * 100);
+  
+  insightTotalRepos.textContent = p.public_repos;
+  insightPopularity.textContent = formatCount(score);
+  insightGists.textContent = p.public_gists;
+  scoreProgressFill.style.width = `${percentage}%`;
+  
+  // Determine Developer Level Badge
+  let badgeName = 'Beginner Developer';
+  let badgeIcon = 'award';
+  
+  if (p.followers > 10000 || totalStars > 5000) {
+    badgeName = 'GitHub Star';
+    badgeIcon = 'sparkles';
+  } else if (p.public_repos > 60 || totalStars > 1000) {
+    badgeName = 'Open Source Contributor';
+    badgeIcon = 'git-pull-request';
+  } else if (p.followers > 500 && p.public_repos > 25) {
+    badgeName = 'Advanced Developer';
+    badgeIcon = 'graduation-cap';
+  } else if (p.followers > 50 || p.public_repos > 10) {
+    badgeName = 'Growing Developer';
+    badgeIcon = 'trending-up';
+  }
+  
+  developerBadge.innerHTML = `<i data-lucide="${badgeIcon}"></i> <span>${badgeName}</span>`;
+  
+  // Left profile badge icon replacement
+  const pLevelIcon = document.getElementById('p-level-icon');
+  pLevelIcon.innerHTML = `<i data-lucide="${badgeIcon}"></i>`;
+}
+
+// Helper to format large numbers
+function formatCount(num) {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+  return num.toString();
+}
+
+// Helper for programming language colors
+function getLanguageColor(lang) {
+  const colors = {
+    'JavaScript': '#f1e05a',
+    'TypeScript': '#3178c6',
+    'HTML': '#e34c26',
+    'CSS': '#563d7c',
+    'Python': '#3572A5',
+    'Ruby': '#701516',
+    'Go': '#00ADD8',
+    'Rust': '#dea584',
+    'C++': '#f34b7d',
+    'C#': '#178600',
+    'Java': '#b07219',
+    'PHP': '#4F5D95',
+    'Shell': '#89e051',
+    'Dart': '#00B4AB',
+    'Swift': '#F05138',
+    'Kotlin': '#A97BFF',
+    'C': '#555555'
+  };
+  return colors[lang] || '#8b949e';
+}
+
+// Search History Management
+function addToSearchHistory(username) {
+  const normalized = username.toLowerCase().trim();
+  if (!normalized) return;
+  
+  // Remove duplicate
+  state.searchHistory = state.searchHistory.filter(item => item.toLowerCase() !== normalized);
+  
+  // Insert at front
+  state.searchHistory.unshift(normalized);
+  
+  // Cap history at 5 items
+  if (state.searchHistory.length > 5) {
+    state.searchHistory.pop();
+  }
+  
+  localStorage.setItem('devscope_search_history', JSON.stringify(state.searchHistory));
+  renderSearchHistoryChips();
+}
+
+function renderSearchHistoryChips() {
+  historyChips.innerHTML = '';
+  
+  if (state.searchHistory.length === 0) {
+    historyChips.innerHTML = '<span class="text-muted" style="font-size: 0.8rem;">No recent searches</span>';
+    return;
+  }
+  
+  state.searchHistory.forEach(username => {
+    const chip = document.createElement('button');
+    chip.className = 'history-chip';
+    chip.innerHTML = `<i data-lucide="history"></i> <span>${username}</span>`;
+    
+    chip.addEventListener('click', () => {
+      fetchGitHubProfile(username);
+    });
+    
+    historyChips.appendChild(chip);
+  });
+  
+  lucide.createIcons();
+}
+
+// Saved Profiles Bookmark Actions
+function toggleSaveProfile() {
+  const p = state.currentProfile;
+  if (!p) return;
+  
+  const idx = state.savedProfiles.findIndex(item => item.login.toLowerCase() === p.login.toLowerCase());
+  
+  if (idx !== -1) {
+    // Already saved, remove it
+    state.savedProfiles.splice(idx, 1);
+    saveProfileBtn.classList.remove('active');
+    saveProfileBtn.title = 'Bookmark Profile';
+    showToast(`Removed @${p.login} from saved profiles`, 'success');
+  } else {
+    // Add to saved
+    const miniProfile = {
+      login: p.login,
+      name: p.name || p.login,
+      avatar_url: p.avatar_url,
+      bio: p.bio || 'No bio specified.',
+      public_repos: p.public_repos,
+      followers: p.followers,
+      following: p.following
+    };
+    state.savedProfiles.unshift(miniProfile);
+    saveProfileBtn.classList.add('active');
+    saveProfileBtn.title = 'Remove Bookmark';
+    showToast(`Added @${p.login} to saved profiles`, 'success');
+  }
+  
+  localStorage.setItem('devscope_saved_profiles', JSON.stringify(state.savedProfiles));
+}
+
+function renderSavedProfiles() {
+  savedProfilesGrid.innerHTML = '';
+  
+  if (state.savedProfiles.length === 0) {
+    savedProfilesGrid.innerHTML = `
+      <div class="no-saved-profiles">
+        <i data-lucide="bookmark-x"></i>
+        <h3>No Bookmarked Profiles</h3>
+        <p>Explore developers and click the bookmark button on their dashboard cards to list them here.</p>
+        <button onclick="switchView('dashboard')" class="settings-btn" style="margin-top: 8px;">Explore Profiles</button>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+  
+  state.savedProfiles.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'saved-card';
+    
+    card.innerHTML = `
+      <button class="saved-remove-btn" title="Remove bookmark" data-username="${item.login}">
+        <i data-lucide="trash-2"></i>
+      </button>
+      <img src="${item.avatar_url}" alt="${item.name}" class="saved-avatar">
+      <h3 class="saved-name">${item.name}</h3>
+      <span class="saved-username">@${item.login}</span>
+      <p class="saved-bio">${item.bio}</p>
+      
+      <div class="saved-stats">
+        <div class="saved-stat-item" title="Repositories">
+          <i data-lucide="folder"></i>
+          <span>${item.public_repos}</span>
+        </div>
+        <div class="saved-stat-item" title="Followers">
+          <i data-lucide="users"></i>
+          <span>${formatCount(item.followers)}</span>
+        </div>
+        <div class="saved-stat-item" title="Following">
+          <i data-lucide="user-plus"></i>
+          <span>${formatCount(item.following)}</span>
+        </div>
+      </div>
+    `;
+    
+    // Clicking card (except remove button) opens profile in dashboard
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.saved-remove-btn')) return;
+      switchView('dashboard');
+      fetchGitHubProfile(item.login);
+    });
+    
+    // Remove Bookmark Event
+    const removeBtn = card.querySelector('.saved-remove-btn');
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeSavedProfile(item.login);
+    });
+    
+    savedProfilesGrid.appendChild(card);
+  });
+  
+  lucide.createIcons();
+}
+
+function removeSavedProfile(username) {
+  state.savedProfiles = state.savedProfiles.filter(item => item.login.toLowerCase() !== username.toLowerCase());
+  localStorage.setItem('devscope_saved_profiles', JSON.stringify(state.savedProfiles));
+  renderSavedProfiles();
+  
+  // If current profile is the one removed, toggle bookmark icon in dashboard
+  if (state.currentProfile && state.currentProfile.login.toLowerCase() === username.toLowerCase()) {
+    saveProfileBtn.classList.remove('active');
+    saveProfileBtn.title = 'Bookmark Profile';
+  }
+  
+  showToast(`Removed @${username} from saved profiles`, 'success');
+}
+
+// Render Trending Developers
+function renderTrendingPreloads() {
+  trendingDevsGrid.innerHTML = '';
+  
+  // Curated descriptions for preloads
+  const trendingDetails = {
+    'torvalds': { name: 'Linus Torvalds', bio: 'Creator of Linux Kernel and Git source control system.', followers: '200k', repos: '7', following: '0' },
+    'gaearon': { name: 'Dan Abramov', bio: 'Co-creator of Redux and developer of React Core components.', followers: '90k', repos: '260', following: '12' },
+    'tj': { name: 'TJ Holowaychuk', bio: 'Creator of Express, Commander, Koa, and Apex structures.', followers: '48k', repos: '300', following: '40' },
+    'sindresorhus': { name: 'Sindre Sorhus', bio: 'Full-time open-sourcerer. Creator of Yeoman, Chalk, AVA.', followers: '55k', repos: '1000', following: '10' },
+    'yyx990803': { name: 'Evan You', bio: 'Creator of Vue.js, Vite, and frontend compiler tools.', followers: '98k', repos: '180', following: '90' }
+  };
+  
+  TRENDING_USERNAMES.forEach(username => {
+    const details = trendingDetails[username] || { name: username, bio: 'Trending Developer Profile.', followers: '—', repos: '—', following: '—' };
+    const card = document.createElement('div');
+    card.className = 'trending-card';
+    
+    card.innerHTML = `
+      <img src="https://github.com/${username}.png" alt="${details.name}" class="trending-avatar" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'">
+      <h3 class="trending-name">${details.name}</h3>
+      <span class="trending-username">@${username}</span>
+      <p class="trending-bio">${details.bio}</p>
+      
+      <div class="trending-footer">
+        <div class="trending-stat">
+          <span class="trending-stat-val">${details.repos}</span>
+          <span class="trending-stat-lbl">Repos</span>
+        </div>
+        <div class="trending-stat">
+          <span class="trending-stat-val">${details.followers}</span>
+          <span class="trending-stat-lbl">Followers</span>
+        </div>
+        <div class="trending-stat">
+          <span class="trending-stat-val">${details.following}</span>
+          <span class="trending-stat-lbl">Following</span>
+        </div>
+      </div>
+    `;
+    
+    card.addEventListener('click', () => {
+      switchView('dashboard');
+      fetchGitHubProfile(username);
+    });
+    
+    trendingDevsGrid.appendChild(card);
+  });
+  
+  lucide.createIcons();
+}
+
+// Toast Notifications Helper
+function showToast(message, type = 'success') {
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  
+  const icon = type === 'success' ? 'check-circle' : 'alert-triangle';
+  
+  toast.innerHTML = `
+    <i data-lucide="${icon}"></i>
+    <span>${message}</span>
+    <div class="toast-progress"></div>
+  `;
+  
+  toastContainer.appendChild(toast);
+  lucide.createIcons();
+  
+  // Remove toast after 3 seconds
+  setTimeout(() => {
+    toast.style.animation = 'slideIn 0.3s ease reverse forwards';
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, 3000);
+}
